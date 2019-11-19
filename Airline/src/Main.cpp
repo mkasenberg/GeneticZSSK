@@ -143,7 +143,7 @@ int main(int argc, char **argv)
 	Genetic* geneticSolver;
 	srand(time(NULL));
 	geneticSolver = new Genetic();
-	costMatrix.readFromFile("tsp10.atsp");//fileMenu());
+	costMatrix.readFromFile("ftv47.atsp");//fileMenu());
 	costMatrix.display();
 	geneticSolver->setUp(&costMatrix);
 	geneticSolver->solveTSP();
