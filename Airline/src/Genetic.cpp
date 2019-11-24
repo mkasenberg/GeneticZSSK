@@ -318,7 +318,7 @@ void Population::parentSelectRank(Individual** parents, uint numOfParents)
 		ulong delta = 1 + 8 * fitSumThreshold;
 		parentId = ceil((-1 + sqrt(delta)) / 2);
 		--parentId;
-		cout << "Parent Id=" << parentId << endl;
+
 		parents[i] = individuals[parentId];
 		for (uint j = 0; j < i; ++j) {
 			if (parents[j] == parents[i]) {
@@ -412,22 +412,23 @@ void Genetic::solveTSP()
 	Population *currentGeneration;
 	Population *nextGeneration;
 	uint generationNum = 1;
-	uint mutationRatio = 0;
+	uint mutationRatio = ceil(0.9 * genotypeSize);
 
 	currentGeneration = new Population(populationMaxSize,
 			Individual::allelesValues->size());
 	nextGeneration = new Population();
 
 	while (stopSignal == false) {
-		mutationRatio = genotypeSize * ceil(1 - 0.9 * generationNum / maxNumOfGenerations);
+		//mutationRatio = genotypeSize * ceil(1 - 0.9 * generationNum / maxNumOfGenerations);
 
 		while (nextGeneration->size() < populationMaxSize) {
 			child = NULL;
-//			currentGeneration->parentSelectRank(parents, 2);
-			currentGeneration->parentSelectRouletteWheel(parents, 2);
+			currentGeneration->parentSelectRank(parents, 2);
+//			currentGeneration->parentSelectRouletteWheel(parents, 2);
 
 			parents[0]->crossoverPMX(parents[1], &child);
 			child->mutate(SWAP_MUT, mutationRatio);
+
 			nextGeneration->pushBackIndividual(child);
 		}
 
@@ -435,7 +436,16 @@ void Genetic::solveTSP()
 		currentGeneration = nextGeneration;
 		nextGeneration = new Population();
 
-		updateBestIndividual(currentGeneration->bestIndividual());
+		if(updateBestIndividual(currentGeneration->bestIndividual()))
+			--mutationRatio;
+		else
+			++mutationRatio;
+
+		if(mutationRatio == 0) {
+			mutationRatio = 1;
+			debug("mutation ratio reached 0\n");
+		}
+
 		++generationNum;
 	}
 
