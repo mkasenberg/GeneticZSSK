@@ -5,6 +5,9 @@
 #include <ctime>
 #include <random>
 #include <functional>
+#include <pthread.h>
+#include <ncurses.h>
+#include <unistd.h>
 
 #include "Matrix.h"
 #include "Timer.h"
@@ -19,6 +22,8 @@ static mt19937 randomEngine;
 
 /* Unit of heredity, encodes information */
 typedef uint Gene;
+
+enum MutationType {NO_MUT, SWAP_MUT, SCRAM_MUT, SWAP_SCRAM_MUT};
 
 /* Candidate solution (creature, phenotype) */
 class Individual {
@@ -44,6 +49,8 @@ public:
 	void die();
 
 	vector<Gene>& getGenotype();
+
+	void mutate(MutationType muttype, uint numOfMutations);
 
 	void mutateTotal();
 
@@ -110,6 +117,10 @@ public:
 /* Genetic algorithm solver */
 class Genetic {
 private:
+	vector<pthread_t*> solvingThreads;
+	pthread_mutex_t mutexBestIndividual;
+	pthread_mutexattr_t mutexattr;
+
 	/* Best found individual, result of algorithm */
 	Individual bestIndividual;
 
@@ -122,17 +133,43 @@ private:
 	/* Max number of generations - criterion of stop */
 	uint maxNumOfGenerations;
 
+	bool stopSignal;
+
+	uint genotypeSize;
+
 public:
 	Genetic();
 
 	~Genetic();
 
+	void solvingThreadsInit(uint numOfThreads);
+
+	void solvingThreadsDestroy();
+
+	void solveTSP_MultiThreads(uint numOfThreads);
+
+	static void* solve(void*);
+
 	void solveTSP();
+
+	bool updateBestIndividual(Individual *individual);
 
 	double getTimeLimit();
 
 	void setUp(Matrix *matrix);
 
 	/* Return true if at least one of stop criterions has been reached. */
-	bool checkCriterionsOfStop(uint generationNum);
+	bool checkCriterionsOfStop();
+
+	void setMaxNumOfGenerations(uint numOfGenerations);
+
+	uint getMaxNumOfGenerations();
+
+	void setPopulationMaxSize(uint populationSize);
+
+	uint getPopulationMaxSize();
+
+	void setNumOfGenerations(double timeLimit);
+
+	double getNumOfGenerations(uint numOfGenerations);
 };

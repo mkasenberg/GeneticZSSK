@@ -44,6 +44,16 @@ vector<Gene>& Individual::getGenotype()
 {
 	return genotype;
 }
+
+void Individual::mutate(MutationType muttype, uint numOfMutations)
+{
+	if(muttype & SWAP_MUT)
+		this->mutateSwap(1);
+
+	if(muttype & SCRAM_MUT)
+			this->mutateSwap(1);
+}
+
 void Individual::mutateTotal()
 {
 	random_shuffle(genotype.begin(), genotype.end());
@@ -333,67 +343,120 @@ Genetic::Genetic()
 	timeLimit = 60000;
 	populationMaxSize = 10;
 	maxNumOfGenerations = 100;
+	stopSignal = false;
+	genotypeSize = 0;
 }
 
 Genetic::~Genetic()
 {
+	//solvingThreadsDestroy();
+}
+
+void Genetic::solvingThreadsInit(uint numOfThreads)
+{
+	pthread_mutexattr_init(&mutexattr);
+	pthread_mutex_init(&mutexBestIndividual, &mutexattr);
+
+	solvingThreads.resize(numOfThreads);
+
+	for (uint i = 0; i < numOfThreads; ++i) {
+		solvingThreads[i] = new pthread_t();
+		if (pthread_create(solvingThreads[i], NULL, solve, (void *) this)) {
+			printf("Error during thread creation\n");
+			abort();
+		}
+	}
+}
+
+void Genetic::solvingThreadsDestroy()
+{
+	vector<pthread_t *>::iterator it = solvingThreads.begin();
+	while (it != solvingThreads.end()) {
+		pthread_cancel(*(*it));
+		pthread_join(*(*it), NULL);
+		delete (*it);
+		(*it) = NULL;
+		it++;
+	}
+	solvingThreads.clear();
+
+	pthread_mutex_destroy(&mutexBestIndividual);
+	pthread_mutexattr_destroy(&mutexattr);
+}
+
+void Genetic::solveTSP_MultiThreads(uint numOfThreads)
+{
+	solvingThreadsInit(numOfThreads);
+	Timer::startTimer();
+
+	while(checkCriterionsOfStop() == false){
+		sleep(1);
+	}
+
+	stopSignal = true;
+	solvingThreadsDestroy();
+	bestIndividual.printDebugInfo();
+}
+
+void* Genetic::solve(void* arg)
+{
+	Genetic* genetic = (Genetic*) arg;
+	genetic->solveTSP();
+	return NULL;
 }
 
 void Genetic::solveTSP()
 {
-	Individual *child, *bestIndCandidate = NULL;
+	Individual *child;
 	Individual *parents[2];
 	Population *currentGeneration;
 	Population *nextGeneration;
 	uint generationNum = 1;
+	uint mutationRatio = 0;
 
 	currentGeneration = new Population(populationMaxSize,
 			Individual::allelesValues->size());
 	nextGeneration = new Population();
 
-	printf("Current generation:\n");
-	currentGeneration->printDebugInfo();
-	printf("Next generation:\n");
-	nextGeneration->printDebugInfo();
-
-	Timer::startTimer();
-
-	while (checkCriterionsOfStop(generationNum) == false) {
+	while (stopSignal == false) {
+		mutationRatio = genotypeSize * ceil(1 - 0.9 * generationNum / maxNumOfGenerations);
 
 		while (nextGeneration->size() < populationMaxSize) {
 			child = NULL;
 //			currentGeneration->parentSelectRank(parents, 2);
 			currentGeneration->parentSelectRouletteWheel(parents, 2);
-			debug("P1:\n");
-			parents[0]->printDebugInfo();
-			debug("P2:\n");
-			parents[1]->printDebugInfo();
 
 			parents[0]->crossoverPMX(parents[1], &child);
-			//child->mutateSwap(1);
-			child->mutateScramble(1);
+			child->mutate(SWAP_MUT, mutationRatio);
 			nextGeneration->pushBackIndividual(child);
-			debug("Child:\n");
-			child->printDebugInfo();
 		}
 
 		delete currentGeneration;
 		currentGeneration = nextGeneration;
 		nextGeneration = new Population();
 
-		bestIndCandidate = currentGeneration->bestIndividual();
-		if(bestIndividual.getFitness() < bestIndCandidate->getFitness()) {
-			bestIndividual = *bestIndCandidate;
-		}
-		bestIndCandidate = NULL;
-
-		debug("Best individual:\n");
-		bestIndividual.printDebugInfo();
+		updateBestIndividual(currentGeneration->bestIndividual());
 		++generationNum;
 	}
 
 	delete currentGeneration;
 	currentGeneration = NULL;
+}
+
+bool Genetic::updateBestIndividual(Individual *individual)
+{
+	bool isBest = false;
+
+	pthread_mutex_lock(&mutexBestIndividual);
+
+	if (individual->getFitness() > bestIndividual.getFitness()) {
+		bestIndividual = *individual;
+		isBest = true;
+	}
+
+	pthread_mutex_unlock(&mutexBestIndividual);
+
+	return isBest;
 }
 
 double Genetic::getTimeLimit()
@@ -405,11 +468,43 @@ void Genetic::setUp(Matrix *matrix)
 {
 	Individual::allelesValues = matrix;
 	randomEngine = mt19937(randomDevice());
+	stopSignal = false;
+	genotypeSize = matrix->size();
 }
 
-bool Genetic::checkCriterionsOfStop(uint generationNum)
+bool Genetic::checkCriterionsOfStop()
 {
 	double t = Timer::millis();
 	debug("time=%f\n", t);
-	return t >= timeLimit;// || maxNumOfGenerations < generationNum;
+	return t >= timeLimit;
+}
+
+void Genetic::setMaxNumOfGenerations(uint numOfGenerations)
+{
+	maxNumOfGenerations = numOfGenerations;
+}
+
+uint Genetic::getMaxNumOfGenerations()
+{
+	return maxNumOfGenerations;
+}
+
+void Genetic::setPopulationMaxSize(uint populationSize)
+{
+	populationMaxSize = populationSize;
+}
+
+uint Genetic::getPopulationMaxSize()
+{
+	return populationMaxSize;
+}
+
+void Genetic::setNumOfGenerations(double timeLimit)
+{
+	this->timeLimit = timeLimit;
+}
+
+double Genetic::getNumOfGenerations(uint numOfGenerations)
+{
+	return timeLimit;
 }

@@ -4,6 +4,7 @@
 #include <fstream>
 #include <stdlib.h>
 #include <stdio.h>
+#include <pthread.h>
 
 #include "Genetic.h"
 #include "Matrix.h"
@@ -45,28 +46,24 @@ string fileMenu()
 	return "ftv47.atsp";
 }
 
-void Menu(vector<vector<double>> &costMatrix, Genetic* genetycznySolver)
+void manualTest(Matrix &costMatrix, Genetic* genetycznySolver)
 {
+//	string fileName;
 //	int choice = 1;
 //	double maxTime = 60000;
 //	int count = 30;
 //	double mutation = 0.01;
 //	double cross = 0.8;
-
-	//readATSPFormatData(fileMenu(), costMatrix);
-//	printMatrix(costMatrix);
-//	genetycznySolver->setAllelesMatrix(&costMatrix);
 //
-//	genetycznySolver->solveTSP();
-	//genetycznySolver->DisplayPopulation();
-
 //	while (choice) {
-//		cout << "0: Wyjscie" << endl << "1: Wczytaj z dane" << endl
+//		cout << "0: Wyjscie" << endl
+//				<< "1: Wczytaj z dane" << endl
 //				<< "2: Kryterium stopu" << endl
-//				<< "3: Wilekosc populacji poczatkowej" << endl
+//				<< "3: Wilekosc populacji" << endl
 //				<< "4: Wspolczynnik mutacji" << endl
-//				<< "5: Wspolczynnik krzyzowania" << endl << "6: Metoda mutacji"
-//				<< endl << "7: Metoda krzyzowania" << endl
+//				<< "5: Wspolczynnik krzyzowania" << endl
+//				<< "6: Metoda mutacji" << endl
+//				<< "7: Metoda krzyzowania" << endl
 //				<< "8: Start Algorytm Genetyczny" << endl;
 //		cin >> choice;
 //
@@ -74,9 +71,10 @@ void Menu(vector<vector<double>> &costMatrix, Genetic* genetycznySolver)
 //		case 0:
 //			break;
 //		case 1:
-//			readATSPFormatData(fileMenu(), costMatrix);
-//			printMatrix(costMatrix);
-//			genetycznySolver->setGrpah(costMatrix);
+//			fileName = fileMenu();
+//			costMatrix.readFromFile(fileName);
+//			costMatrix.display();
+//			genetycznySolver->setUp(&costMatrix);
 //			break;
 //		case 2:
 //			cout << "Stare kryterium stopu: " << genetycznySolver->getTimeLimit()
@@ -141,12 +139,16 @@ int main(int argc, char **argv)
 {
 	Matrix costMatrix;
 	Genetic* geneticSolver;
-	srand(time(NULL));
 	geneticSolver = new Genetic();
+
+	srand(time(NULL));
+
+//	manualTest(costMatrix, geneticSolver);
+
 	costMatrix.readFromFile("ftv47.atsp");//fileMenu());
 	costMatrix.display();
 	geneticSolver->setUp(&costMatrix);
-	geneticSolver->solveTSP();
+	geneticSolver->solveTSP_MultiThreads(3);
 
 	if(geneticSolver)
 		delete geneticSolver;
